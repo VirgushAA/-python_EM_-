@@ -1,29 +1,20 @@
 Initial README state, mod later.
 
-нашел такую структуру, что добавить -
-my_project/
-├── app.py               # Основной файл запуска приложения
-├── main.py              # Главный файл с настройками и стартовым маршрутом
-├── config.py            # Файл конфигурации приложения
-├── models/              # Директория моделей ORM (если используются)
-│   ├── user.py          # Модель пользователя
-│   └── product.py       # Модель продукта
-├── schemas/             # Директория схем данных (например, Pydantic)
-│   ├── base.py          # Базовые классы схем
-│   ├── user.py          # Схема пользователя
-│   └── product.py       # Схема продукта
-├── middlewares/         # Директория с Middleware-компонентами
-│   ├── auth.py          # Middleware для авторизации
-│   ├── logging.py       # Middleware для логирования
-│   ├── validation.py    # Middleware для валидации данных
-│   └── error_handler.py # Middleware для обработки ошибок
-├── services/           # Логика бизнес-процессов
-│   ├── user_service.py   # Сервис операций с пользователями
-│   └── product_service.py# Сервис операций с товарами
-├── routes/              # Маршруты приложения
-│   ├── users.py         # Обработчики маршрутов для пользователей
-│   └── products.py      # Обработчики маршрутов для товаров
-├── tests/               # Тесты для всех модулей
-│   ├── test_user.py     # Тесты для модуля пользователей
-│   └── test_product.py  # Тесты для модуля продуктов
-└── requirements.txt    # Список зависимостей проекта
+## Authentication
+
+- Users authenticate using email and password
+- Passwords are stored using bcrypt
+- After login, the server issues a JWT token
+- The token is passed via Authorization: Bearer header
+- Custom middleware extracts the token and identifies the user
+
+## Authorization
+
+The system uses role-based access control with ownership support.
+
+- Users can have multiple roles
+- Roles contain permissions
+- Permission defines:
+  - resource
+  - action
+  - scope (own / all)

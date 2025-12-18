@@ -20,7 +20,11 @@ The system uses role-based access control with ownership support.
   - scope (own / all)
 
 # server
-start - uvicorn main:app --reload
-docs - http://127.0.0.1:8000/docs
+start
+- uvicorn main:app --reload
+docs
+- http://127.0.0.1:8000/docs
 
-экстренная остановка - taskkill /IM uvicorn.exe /F
+экстренная остановка
+- taskkill /IM python.exe /F
+- taskkill /IM uvicorn.exe /F

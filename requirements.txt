@@ -4,4 +4,5 @@ pydantic
 pydantic[email]
 sqlalchemy
 passlib
-jose
+python-jose
+bcrypt==3.2.2

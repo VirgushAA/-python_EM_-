@@ -1,15 +1,15 @@
-from fastapi import FastAPI, HTTPException, status, requests
-from api.auth import router as auth_router, router
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from api.auth import router as auth_router
 from db.init import db_init
 
-app = FastAPI()
-
-@app.on_event('startup')
-def startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     db_init()
+    yield
 
+app = FastAPI(lifespan=lifespan)
 app.include_router(auth_router)
-# app.include_router(router)
 
 # raise HTTPException(
 #     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -18,5 +18,6 @@ app.include_router(auth_router)
 
 @app.get('/ping')
 def ping():
+
     return {'ok': True}
 

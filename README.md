@@ -28,3 +28,8 @@ docs
 экстренная остановка
 - taskkill /IM python.exe /F
 - taskkill /IM uvicorn.exe /F
+
+
+DB engine can be switched to PostgreSQL without changes in ORM layer
+JWT-based auth, logout is handled client-side
+selectinload

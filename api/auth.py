@@ -1,14 +1,18 @@
+from sys import prefix
 from urllib.request import Request
 
 from fastapi import APIRouter, status, Depends, HTTPException
-from schemas.auth import RegisterRequest, RegisterResponse, LoginRequest, TokenResponse
+from schemas.auth import RegisterRequest, RegisterResponse, LoginRequest, TokenResponse, UpdateMeRequest, UserOut
 from sqlalchemy.orm import Session
 from db.sessions import SessionLocal
-from models.user import User
+from models.user import User, Role
 from core.security import hash_password, verify_password
 from core.jwt import create_access_token, decode_access_token
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+auth_router = APIRouter(prefix='/auth', tags=['auth'])
+me_router = APIRouter(prefix='/me', tags=['me'])
+users_router = APIRouter(prefix='/users', tags=['users'])
+roles_router = APIRouter(prefix='/roles', tags=['roles'])
 
 def get_db():
     db = SessionLocal()
@@ -17,7 +21,9 @@ def get_db():
     finally:
         db.close()
 
-@router.post(
+# -------- auth
+
+@auth_router.post(
     "/register",
     response_model=RegisterResponse,
     status_code=status.HTTP_201_CREATED
@@ -39,7 +45,7 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
 
     return {"id": user.id, "email": user.email}
 
-@router.post(
+@auth_router.post(
     "/login",
     response_model=TokenResponse
 )
@@ -52,12 +58,17 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
 
     return {"access_token": token}
 
-@router.get("/show")
+@auth_router.get("/show")
 def show(db: Session = Depends(get_db)):
     output = db.query(User).all()
     print(output)
     return {"ok": 1}
 
+@auth_router.post("/logout")
+def logout():
+    return {"detail": "Client should delete token"}
+
+# ----------------------------------------------
 
 def get_bearer_token(request: Request) -> str:
     auth = request.headers.get("Authorization")
@@ -96,4 +107,101 @@ def require_role(role_name: str):
         return user
     return checker
 
+def require_permission(code: str):
+    def checker(user: User = Depends(get_current_user)):
+        for role in user.roles:
+            for permission in role.permissions:
+                if permission.code == code:
+                    return
+        raise HTTPException(403, 'Forbidden')
+    return checker
 
+# ---------- user
+
+@users_router.get(
+    '/',
+    dependencies=[Depends(require_permission('user.read'))],
+    response_model=list[UserOut]
+)
+def list_users(db: Session = Depends(get_db)):
+    return db.query(User).all()
+
+@users_router.post(
+    '/{user_id}/roles/{role_id}',
+    dependencies=[Depends(require_permission('role.assign'))]
+)
+def assign_role(user_id: int, role_id: int, db: Session = Depends(get_db)):
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(404, 'User not found')
+
+    role = db.get(Role, role_id)
+    if not role:
+        raise HTTPException(404, 'Role not found')
+
+    if role in user.roles:
+        return {'detail': 'Role already assigned'}
+
+    user.roles.append(role)
+    db.commit()
+
+    return {'detail': f"Role '{role.name}' assigned to user {user.id}"}
+
+
+
+# -------- me
+
+@me_router.get("/", response_model=UserOut)
+def me(user: User = Depends(get_current_user)):
+    return user
+
+@me_router.delete("/")
+def delete_me(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    user.is_active = False
+    db.commit()
+    return {"detail": "User deactivated"}
+
+@me_router.patch("/")
+def update_me(
+        data: UpdateMeRequest,
+        db: Session = Depends(get_db),
+        user: User = Depends(get_current_user())
+):
+    if data.email:
+        user.email = data.email
+    if data.name:
+        user.name = data.name
+    if data.password:
+        user.password_hash = hash_password(data.password)
+
+    db.commit()
+    return {'detail': 'Updated'}
+
+
+def seed_roles_permissions(db: Session):
+    admin = Role(name="admin")
+    user = Role(name="user")
+    guest = Role(name="guest")
+
+    permissions = [
+        Permission(code="user.read"),
+        Permission(code="user.update"),
+        Permission(code="user.delete"),
+        Permission(code="role.read"),
+        Permission(code="role.assign"),
+    ]
+
+    db.add_all([admin, user, guest])
+    db.add_all(permissions)
+    db.commit()
+
+    admin.permissions = permissions   # админ может всё
+    user.permissions = [
+        p for p in permissions if p.code.startswith("user.")
+    ]
+    guest.permissions = [] # гость не может ничего
+
+    db.commit()

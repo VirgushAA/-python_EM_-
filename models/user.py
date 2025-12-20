@@ -3,6 +3,7 @@ from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
 
+
 role_permissions = Table(
     "role_permissions",
     Base.metadata,
@@ -11,14 +12,14 @@ role_permissions = Table(
 )
 
 class UserRole(Base):
-    __tablename__ = 'user_roles'
+    __tablename__ = "user_roles"
 
-    user_id = Column(ForeignKey('users.id'), primary_key=True)
-    role_id = Column(ForeignKey('roles.id'), primary_key=True)
+    user_id = Column(ForeignKey("users.id"), primary_key=True)
+    role_id = Column(ForeignKey("roles.id"), primary_key=True)
 
 
 class User(Base):
-    __tablename__ = 'users'
+    __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)
     email = Column(String, unique=True, nullable=False)
@@ -28,49 +29,46 @@ class User(Base):
 
     roles = relationship(
         "Role",
-        secondary="user_roles",
+        secondary=UserRole.__table__,
         back_populates="users"
     )
 
     def __repr__(self):
-        return f"<User id={self.id} email={self.email} name={self.name}>"
+        return f"<User id={self.id} email={self.email}>"
 
 
 class Role(Base):
-    __tablename__ = 'roles'
+    __tablename__ = "roles"
 
     id = Column(Integer, primary_key=True)
     name = Column(String, unique=True, nullable=False)
 
-    permissions = relationship(
-        "Permission",
-        # secondary=role_permissions,
+    users = relationship(
+        "User",
         secondary=UserRole.__table__,
         back_populates="roles"
     )
 
-    users = relationship(
-        "User",
-        secondary="user_roles",
+    permissions = relationship(
+        "Permission",
+        secondary=role_permissions,
         back_populates="roles"
     )
 
 
-# --------------------------------------
 class Permission(Base):
     __tablename__ = "permissions"
 
     id = Column(Integer, primary_key=True)
-    code = Column(String, unique=True)   # "post.delete"
-    resource = Column(String)
-    action = Column(String)
+    code = Column(String, unique=True, nullable=False)  # "post.delete"
+    resource = Column(String, nullable=False)
+    action = Column(String, nullable=False)
 
     roles = relationship(
         "Role",
         secondary=role_permissions,
         back_populates="permissions"
     )
-
 
     # ------------------------------- попробую для ACL
 # class RolePermission(Base):

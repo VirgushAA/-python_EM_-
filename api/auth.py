@@ -1,11 +1,10 @@
-from sys import prefix
-from urllib.request import Request
+# from urllib.request import Request
 
-from fastapi import APIRouter, status, Depends, HTTPException
+from fastapi import APIRouter, status, Depends, HTTPException, Request
 from schemas.auth import RegisterRequest, RegisterResponse, LoginRequest, TokenResponse, UpdateMeRequest, UserOut
 from sqlalchemy.orm import Session
 from db.sessions import SessionLocal
-from models.user import User, Role
+from models.user import User, Role, Permission
 from core.security import hash_password, verify_password
 from core.jwt import create_access_token, decode_access_token
 
@@ -168,7 +167,7 @@ def delete_me(
 def update_me(
         data: UpdateMeRequest,
         db: Session = Depends(get_db),
-        user: User = Depends(get_current_user())
+        user: User = Depends(get_current_user)
 ):
     if data.email:
         user.email = data.email
@@ -180,28 +179,40 @@ def update_me(
     db.commit()
     return {'detail': 'Updated'}
 
+# @auth_router.get("/debug/all")
+# def show_all(db: Session = Depends(get_db)):
+#     return {
+#         "users": db.query(User).all(),
+#         "roles": db.query(Role).all(),
+#         "permissions": db.query(Permission).all(),
+#     }
 
-def seed_roles_permissions(db: Session):
-    admin = Role(name="admin")
-    user = Role(name="user")
-    guest = Role(name="guest")
-
-    permissions = [
-        Permission(code="user.read"),
-        Permission(code="user.update"),
-        Permission(code="user.delete"),
-        Permission(code="role.read"),
-        Permission(code="role.assign"),
-    ]
-
-    db.add_all([admin, user, guest])
-    db.add_all(permissions)
-    db.commit()
-
-    admin.permissions = permissions   # админ может всё
-    user.permissions = [
-        p for p in permissions if p.code.startswith("user.")
-    ]
-    guest.permissions = [] # гость не может ничего
-
-    db.commit()
+@auth_router.get("/debug/all")
+def show_all(db: Session = Depends(get_db)):
+    return {
+        "users": [
+            {
+                "id": u.id,
+                "email": u.email,
+                "roles": [r.name for r in u.roles],
+            }
+            for u in db.query(User).all()
+        ],
+        "roles": [
+            {
+                "id": r.id,
+                "name": r.name,
+                "permissions": [p.code for p in r.permissions],
+            }
+            for r in db.query(Role).all()
+        ],
+        "permissions": [
+            {
+                "id": p.id,
+                "code": p.code,
+                "resource": p.resource,
+                "action": p.action,
+            }
+            for p in db.query(Permission).all()
+        ],
+    }

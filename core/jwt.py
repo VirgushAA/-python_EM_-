@@ -10,10 +10,10 @@ def create_access_token(user_id: int):
         'sub': str(user_id),
         'exp': datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     }
-    return jwt.encode(payload, SECRET_KEY, algorithm=[ALGORITHM])
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 def decode_access_token(token: str):
-    return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    return jwt.decode(token, SECRET_KEY, algorithms=ALGORITHM)
 
 
     # try:

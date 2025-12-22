@@ -10,20 +10,44 @@ def seed_roles_permissions_and_users(db: Session):
 
     roles_permissions = {
         "admin": [],
+
         "moderator": [
-            "post.read", "post.update", "post.publish",
-            "comment.read", "comment.moderate",
+            "post.read",
+            "post.update",
+            "post.publish",
+            "post.delete",
+
+            "comment.read",
+            "comment.moderate",
+            "comment.delete",
         ],
+
         "user": [
-            "post.read", "post.create",
-            "comment.read", "comment.create",
-            "order.read", "order.create",
+            "post.read",
+            "post.create",
+            "post.update.own",
+            "post.delete.own",
+
+            "comment.read",
+            "comment.create",
+            "comment.update.own",
+            "comment.delete.own",
+
+            "order.read.own",
+            "order.create",
         ],
+
         "auditor": [
-            "user.read", "order.read", "report.read",
+            "user.read",
+            "order.read",
+            "report.read",
+            "post.read",
+            "comment.read",
         ],
+
         "guest": [
             "post.read",
+            "comment.read",
         ],
     }
 

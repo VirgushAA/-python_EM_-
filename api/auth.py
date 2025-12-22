@@ -196,14 +196,6 @@ def update_me(
     db.commit()
     return {'detail': 'Updated'}
 
-# @auth_router.get("/debug/all")
-# def show_all(db: Session = Depends(get_db)):
-#     return {
-#         "users": db.query(User).all(),
-#         "roles": db.query(Role).all(),
-#         "permissions": db.query(Permission).all(),
-#     }
-
 @auth_router.get('/debug/all')
 def show_all(db: Session = Depends(get_db)):
     return {
@@ -234,3 +226,24 @@ def show_all(db: Session = Depends(get_db)):
             for p in db.query(Permission).all()
         ],
     }
+
+
+
+def require_post_permission(action: str):
+    def checker(
+        post_id: int,
+        db: Session = Depends(get_db),
+        user: User = Depends(get_current_user),
+    ):
+        post = db.get(Post, post_id)
+        if not post:
+            raise HTTPException(404)
+
+        if user.has_permission(f"post.{action}"):
+            return post
+
+        if post.owner_id == user.id and user.has_permission("post.update"):
+            return post
+
+        raise HTTPException(403)
+    return checker

@@ -23,7 +23,7 @@ def get_db():
 # -------- auth
 
 @auth_router.post(
-    "/register",
+    '/register',
     response_model=RegisterResponse,
     status_code=status.HTTP_201_CREATED
 )
@@ -45,38 +45,40 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
     return {"id": user.id, "email": user.email}
 
 @auth_router.post(
-    "/login",
+    '/login',
     response_model=TokenResponse
 )
 def login(data: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == data.email).first()
     if not user or not verify_password(data.password, user.password_hash):
         raise HTTPException(401, 'Invalid credentials.')
+    if not user.is_active:
+        raise HTTPException(403, 'User account is inactive or deactivated')
 
     token = create_access_token(user.id)
 
     return {"access_token": token}
 
-@auth_router.get("/show")
+@auth_router.get('/show')
 def show(db: Session = Depends(get_db)):
     output = db.query(User).all()
     print(output)
-    return {"ok": 1}
+    return {'ok': 1}
 
 @auth_router.post("/logout")
 def logout():
-    return {"detail": "Client should delete token"}
+    return {'Client should delete token'}
 
 # ----------------------------------------------
 
 def get_bearer_token(request: Request) -> str:
     auth = request.headers.get("Authorization")
     if not auth:
-        raise HTTPException(401, "Authorization header missing")
+        raise HTTPException(401, 'Authorization header missing')
 
     scheme, token = auth.split()
     if scheme.lower() != "bearer":
-        raise HTTPException(401, "Invalid auth scheme")
+        raise HTTPException(401, 'Invalid auth scheme')
 
     return token
 
@@ -119,15 +121,15 @@ def require_permission(code: str):
 
 @users_router.get(
     '/',
-    dependencies=[Depends(require_permission('user.read'))],
+    dependencies=[Depends(require_role('admin'))],
     response_model=list[UserOut]
 )
 def list_users(db: Session = Depends(get_db)):
     return db.query(User).all()
 
-@users_router.post(
+@users_router.patch(
     '/{user_id}/roles/{role_id}',
-    dependencies=[Depends(require_permission('role.assign'))]
+    dependencies=[Depends(require_role('admin'))]
 )
 def assign_role(user_id: int, role_id: int, db: Session = Depends(get_db)):
     user = db.get(User, user_id)
@@ -146,24 +148,39 @@ def assign_role(user_id: int, role_id: int, db: Session = Depends(get_db)):
 
     return {'detail': f"Role '{role.name}' assigned to user {user.id}"}
 
+@users_router.delete(
+    '/deactivate/{user_id}',
+    dependencies=[Depends(require_role('admin'))]
+)
+def deactivate_user(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == int(user_id)).first()
+
+    if not user:
+        raise  HTTPException(404, 'User not found')
+    if not user.is_active:
+        return {'detail': f"User {user_id} is allready deactivated"}
+
+    user.is_active = False
+    db.commit()
+    return {'detail': f"User {user_id} has deactivated"}
 
 
 # -------- me
 
-@me_router.get("/", response_model=UserOut)
+@me_router.get('/', response_model=UserOut)
 def me(user: User = Depends(get_current_user)):
     return user
 
-@me_router.delete("/")
+@me_router.delete('/')
 def delete_me(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
     user.is_active = False
     db.commit()
-    return {"detail": "User deactivated"}
+    return {'detail': 'User deactivated'}
 
-@me_router.patch("/")
+@me_router.patch('/')
 def update_me(
         data: UpdateMeRequest,
         db: Session = Depends(get_db),
@@ -187,31 +204,32 @@ def update_me(
 #         "permissions": db.query(Permission).all(),
 #     }
 
-@auth_router.get("/debug/all")
+@auth_router.get('/debug/all')
 def show_all(db: Session = Depends(get_db)):
     return {
-        "users": [
+        'users': [
             {
-                "id": u.id,
-                "email": u.email,
-                "roles": [r.name for r in u.roles],
+                'id': u.id,
+                'email': u.email,
+                'roles': [r.name for r in u.roles],
+                'is_active': u.is_active
             }
             for u in db.query(User).all()
         ],
-        "roles": [
+        'roles': [
             {
-                "id": r.id,
-                "name": r.name,
-                "permissions": [p.code for p in r.permissions],
+                'id': r.id,
+                'name': r.name,
+                'permissions': [p.code for p in r.permissions],
             }
             for r in db.query(Role).all()
         ],
-        "permissions": [
+        'permissions': [
             {
-                "id": p.id,
-                "code": p.code,
-                "resource": p.resource,
-                "action": p.action,
+                'id': p.id,
+                'code': p.code,
+                'resource': p.resource,
+                'action': p.action,
             }
             for p in db.query(Permission).all()
         ],

@@ -1,5 +1,3 @@
-# from urllib.request import Request
-
 from fastapi import APIRouter, status, Depends, HTTPException, Request
 from schemas.auth import RegisterRequest, RegisterResponse, LoginRequest, TokenResponse, UpdateMeRequest, UserOut
 from sqlalchemy.orm import Session

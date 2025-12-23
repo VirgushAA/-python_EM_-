@@ -11,7 +11,7 @@ from core.jwt import create_access_token, decode_access_token
 auth_router = APIRouter(prefix='/auth', tags=['auth'])
 me_router = APIRouter(prefix='/me', tags=['me'])
 users_router = APIRouter(prefix='/users', tags=['users'])
-roles_router = APIRouter(prefix='/roles', tags=['roles'])
+post_router = APIRouter(prefix='/post', tags=['post'])
 
 def get_db():
     db = SessionLocal()
@@ -20,7 +20,7 @@ def get_db():
     finally:
         db.close()
 
-# -------- auth
+# -------- auth router
 
 @auth_router.post(
     '/register',
@@ -32,11 +32,17 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
     if exist:
         raise HTTPException(409, 'Email already registered.')
 
+    role_user = db.query(Role).filter(Role.name == "user").first()
+
     user = User(
         name=data.name,
         email=data.email,
-        password_hash=hash_password(data.password)
+        password_hash=hash_password(data.password),
+        is_active=True
     )
+
+    if role_user:
+        user.roles.append(role_user)
 
     db.add(user)
     db.commit()
@@ -76,7 +82,11 @@ def get_bearer_token(request: Request) -> str:
     if not auth:
         raise HTTPException(401, 'Authorization header missing')
 
-    scheme, token = auth.split()
+    auth_string = auth.split()
+    if len(auth_string) != 2:
+        raise HTTPException(401, 'Invalid Authorization header')
+
+    scheme, token = auth_string
     if scheme.lower() != "bearer":
         raise HTTPException(401, 'Invalid auth scheme')
 
@@ -113,11 +123,11 @@ def require_permission(code: str):
         for role in user.roles:
             for permission in role.permissions:
                 if permission.code == code:
-                    return
+                    return user
         raise HTTPException(403, 'Forbidden')
     return checker
 
-# ---------- user
+# ---------- user router
 
 @users_router.get(
     '/',
@@ -164,39 +174,10 @@ def deactivate_user(user_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {'detail': f"User {user_id} has deactivated"}
 
-
-# -------- me
-
-@me_router.get('/', response_model=UserOut)
-def me(user: User = Depends(get_current_user)):
-    return user
-
-@me_router.delete('/')
-def delete_me(
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user)
-):
-    user.is_active = False
-    db.commit()
-    return {'detail': 'User deactivated'}
-
-@me_router.patch('/')
-def update_me(
-        data: UpdateMeRequest,
-        db: Session = Depends(get_db),
-        user: User = Depends(get_current_user)
-):
-    if data.email:
-        user.email = data.email
-    if data.name:
-        user.name = data.name
-    if data.password:
-        user.password_hash = hash_password(data.password)
-
-    db.commit()
-    return {'detail': 'Updated'}
-
-@auth_router.get('/debug/all')
+@users_router.get(
+    '/debug/all',
+    dependencies=[Depends(require_role('admin'))]
+)
 def show_all(db: Session = Depends(get_db)):
     return {
         'users': [
@@ -227,23 +208,74 @@ def show_all(db: Session = Depends(get_db)):
         ],
     }
 
+# -------- me router
 
+@me_router.get('/', response_model=UserOut)
+def me(user: User = Depends(get_current_user)):
+    return user
 
-def require_post_permission(action: str):
-    def checker(
-        post_id: int,
+@me_router.delete('/')
+def delete_me(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    user.is_active = False
+    db.commit()
+    return {'detail': 'User deactivated'}
+
+@me_router.patch('/')
+def update_me(
+        data: UpdateMeRequest,
         db: Session = Depends(get_db),
-        user: User = Depends(get_current_user),
-    ):
-        post = db.get(Post, post_id)
-        if not post:
-            raise HTTPException(404)
+        user: User = Depends(get_current_user)
+):
+    if data.email:
+        user.email = data.email
+    if data.name:
+        user.name = data.name
+    if data.password:
+        user.password_hash = hash_password(data.password)
 
-        if user.has_permission(f"post.{action}"):
-            return post
+    db.commit()
+    return {'detail': 'Updated'}
 
-        if post.owner_id == user.id and user.has_permission("post.update"):
-            return post
+# ======================= post router
 
-        raise HTTPException(403)
-    return checker
+@post_router.get(
+    '/{post_id}',
+    dependencies=[Depends(require_permission('post.read'))]
+)
+def read_post(post_id: int):
+    return {
+        'id': post_id,
+        'title': 'Mock post',
+        'content': 'Lorem Ipsum'
+    }
+
+@post_router.patch(
+    '/{post_id}',
+    dependencies=[Depends(require_permission('post.update'))]
+)
+def update_post(post_id: int, data: dict):
+    return {
+        'detail': f"Post {post_id} updated",
+        'changes': data
+    }
+
+@post_router.post(
+    '/',
+    dependencies=[Depends(require_permission('post.create'))]
+)
+def create_post(data: dict):
+    return {
+        'id': 123,
+        'detail': 'Post created',
+        'contend': data
+    }
+
+@post_router.delete(
+    '/{post_id}',
+    dependencies=[Depends(require_permission('post.delete'))]
+)
+def delete_post(post_id: int):
+    return {'detail': f"Post {post_id} has been deleted."}

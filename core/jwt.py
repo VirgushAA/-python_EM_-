@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
-from jose import jwt
+from jose import jwt, JWTError, ExpiredSignatureError
+from fastapi import HTTPException, status
 
 SECRET_KEY = "super-secret-key"
 ALGORITHM = "HS256"
@@ -13,22 +14,9 @@ def create_access_token(user_id: int):
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 def decode_access_token(token: str):
-    return jwt.decode(token, SECRET_KEY, algorithms=ALGORITHM)
-
-
-    # try:
-    #     return jwt.decode(
-    #         token,
-    #         SECRET_KEY,
-    #         algorithms=[ALGORITHM]
-    #     )
-    # except ExpiredSignatureError:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_401_UNAUTHORIZED,
-    #         detail="Token expired"
-    #     )
-    # except PyJWTError:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_401_UNAUTHORIZED,
-    #         detail="Invalid token"
-    #     )
+    try:
+        return jwt.decode( token, SECRET_KEY, algorithms=[ALGORITHM])
+    except ExpiredSignatureError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")

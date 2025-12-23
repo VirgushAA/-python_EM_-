@@ -14,7 +14,6 @@ def seed_roles_permissions_and_users(db: Session):
         "moderator": [
             "post.read",
             "post.update",
-            "post.publish",
             "post.delete",
 
             "comment.read",
@@ -57,7 +56,7 @@ def seed_roles_permissions_and_users(db: Session):
     for codes in roles_permissions.values():
         for code in codes:
             if code not in perms_map:
-                resource, action = code.split(".")
+                resource, action = code.split(".", 1)
                 perms_map[code] = Permission(
                     code=code,
                     resource=resource,
@@ -70,7 +69,11 @@ def seed_roles_permissions_and_users(db: Session):
     # ---------- рооли ----------
     roles_map: dict[str, Role] = {}
 
-    all_permissions = list(perms_map.values())
+    all_codes = set()
+    for codes in roles_permissions.values():
+        all_codes.update(codes)
+
+    all_permissions = [perms_map[c] for c in all_codes]
 
     for role_name, codes in roles_permissions.items():
         role = Role(name=role_name)

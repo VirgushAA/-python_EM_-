@@ -69,11 +69,3 @@ class Permission(Base):
         secondary=role_permissions,
         back_populates="permissions"
     )
-
-    # ------------------------------- попробую для ACL
-# class RolePermission(Base):
-#     __tablename__ = "role_permissions"
-#
-#     role_id = Column(ForeignKey("roles.id"), primary_key=True)
-#     permission_id = Column(ForeignKey("permissions.id"), primary_key=True)
-#     granted_at = Column(DateTime, default=datetime.utcnow)

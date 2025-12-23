@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from api.auth import auth_router, me_router, users_router, roles_router
+from api.auth import auth_router, me_router, users_router, post_router
 from db.init import db_init
 from db.sessions import SessionLocal
 from misc.db_seed import seed_roles_permissions_and_users
@@ -20,7 +20,7 @@ app = FastAPI(lifespan=lifespan)
 app.include_router(auth_router)
 app.include_router(me_router)
 app.include_router(users_router)
-app.include_router(roles_router)
+app.include_router(post_router)
 
 @app.get('/ping')
 def ping():
